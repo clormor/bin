@@ -1,4 +1,4 @@
-scripts
-=======
+bin
+===
 
-useful scripts (mostly bash) - clone these into your bin directory
+Custom scripts for my `~/bin` directory.
