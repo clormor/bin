@@ -1,0 +1,13 @@
+#!/bin/bash
+
+function printDate {
+    DATE_FORMAT="%a %d %h %r %Z"
+    echo -e "  $1\t$(TZ=$2 date "+$DATE_FORMAT")"
+}
+
+printDate London Europe/London
+printDate California America/Los_Angeles
+printDate Washington America/New_York
+printDate Canberra Australia/Canberra
+printDate Wellington Pacific/Auckland
+
