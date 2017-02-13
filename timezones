@@ -1,8 +1,8 @@
 #!/bin/bash
 
 function printDate {
-    DATE_FORMAT="%a %d %h %r %Z"
-    echo -e "  $1\t$(TZ=$2 date "+$DATE_FORMAT")"
+    DATE_FORMAT="$1%t%a %b %e %R (GMT %z)"
+    echo "  $(TZ=$2 date "+$DATE_FORMAT")"
 }
 
 printDate London Europe/London
