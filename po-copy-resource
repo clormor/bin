@@ -1,0 +1,53 @@
+#!/bin/bash
+
+USAGE="$(basename $0) url url [object|property]"
+
+function copy_resource {
+    if [ ! -f $1 ]
+    then
+        echo "ERROR Cannot copy resource $1 as it does not exist"
+        exit 4
+    fi
+    if [ -f $2 ]
+    then
+        echo "WARN Overwriting existing file $2"
+    fi
+    cp $1 $2
+    echo "Copied $(basename $1) to $(basename $2)"
+}
+
+if [ $# -lt 3 ]
+then
+    echo $USAGE
+    exit 1
+fi
+
+if [ ! "$PO_HOME" ]
+then
+    echo "ERROR You must set the PO_HOME environment variable to the root of your Po repository"
+    exit 2
+fi
+
+resourcesDir=$(find $PO_HOME -maxdepth 2 -type d -name Resources)
+iconsDir=$resourcesDir/UserIcons
+if [ -d ${iconsDir} ]
+then
+    echo "Looking for Icons in: $iconsDir"
+else
+    echo "ERROR Could not find Icons directory: $iconsDir"
+    exit 3
+fi
+
+url1=$(echo $1 | sed 's/\./-/g')
+url2=$(echo $2 | sed 's/\./-/g')
+objectOrProperty=$3
+
+copy_resource $iconsDir/$url1-details.png $iconsDir/$url2-details.png
+copy_resource $iconsDir/$url1-edge.png $iconsDir/$url2-edge.png
+
+if [ $objectOrProperty == "object" ]
+then
+    copy_resource $iconsDir/$url1-node.png $iconsDir/$url2-node.png
+fi
+
+echo "Done"
