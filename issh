@@ -1,0 +1,19 @@
+#!/bin/bash
+
+set -e
+
+# validate args
+if [ $# -ne 1 ]
+then
+   echo `basename $0` "<instance id>"
+   exit 1
+fi
+
+ipasswordless-ssh $1
+
+# process args
+ssh_host=$(insta hostname $1)
+ssh_user=palantir
+
+# start ssh session
+ssh $ssh_user@$ssh_host
