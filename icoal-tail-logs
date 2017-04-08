@@ -1,0 +1,21 @@
+#!/bin/bash
+
+set -e
+
+dispatch_path="/opt/palantir/services/dispatch-0"
+
+# validate args
+if [ $# -ne 1 ]
+then
+   echo `basename $0` "<instance id>"
+   exit 1
+fi
+
+ipasswordless-ssh $1
+
+# process args
+ssh_host=$(insta hostname $1)
+ssh_user=palantir
+
+ssh $ssh_user@$ssh_host "tail -f ${dispatch_path}/log/dispatch-audit.log"
+

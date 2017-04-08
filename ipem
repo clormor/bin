@@ -1,0 +1,22 @@
+#!/bin/bash
+
+set -e
+
+pem_path="/opt/palantir/enterpriseManager"
+admin_url="-u p://admin:palantir@localhost:3280"
+
+# validate args
+if [ $# -ne 2 ]
+then
+   echo `basename $0` "<instance id> {start|stop|restart}"
+   exit 1
+fi
+
+ipasswordless-ssh $1
+
+# process args
+ssh_host=$(insta hostname $1)
+ssh_user=palantir
+
+ssh $ssh_user@$ssh_host "${pem_path}/bin/unix/pem.sh $2"
+

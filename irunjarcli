@@ -1,0 +1,26 @@
+#!/bin/bash
+
+set -e
+
+dispatch_path="/opt/palantir/services/dispatch-0"
+admin_url="-u p://admin:palantir@localhost:3280"
+
+# validate args
+if [ $# -ne 4 ]
+then
+   echo `basename $0` "<instance id> <jar> <class> <options>"
+   exit 1
+fi
+
+ipasswordless-ssh $1
+
+
+# process args
+ssh_host=$(insta hostname $1)
+ssh_user=palantir
+
+jar_name=$(basename $2)
+iscp $2 $1 2>/dev/null
+
+ssh $ssh_user@$ssh_host "${dispatch_path}/bin/unix/runjarcli.sh ~/${jar_name} $3 ${admin_url} $4 "
+

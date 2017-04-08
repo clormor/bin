@@ -1,0 +1,18 @@
+#!/bin/bash
+
+set -e
+
+# validate args
+if [ $# -ne 1 ]
+then
+   echo `basename $0` "[houston]"
+   exit 1
+fi
+
+if [ "$1" == "houston" ]
+then
+    offering_id=$(echo "$(insta offerings list | grep 'Houston 3.9 + 2 rovers')" | sed -n "s/.*\[\([0-9][0-9]*\)\].*/\1/p")
+fi
+
+insta offerings start $offering_id
+
