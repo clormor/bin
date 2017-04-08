@@ -26,12 +26,13 @@ almanac_url="s3://il-pdreleases-use/skylab-module/${module_version}/0/skylab-mod
 
 ihouston-install_module $1 $almanac_url
 
-axiom=$(echo "$(insta hostname 0.0),$(insta hostname 0.1),$(insta hostname 0.2)")
+axiom=$(echo "$(insta hostname $1.0),$(insta hostname $1.1),$(insta hostname $1.2)")
 echo "axiom is $axiom"
 ssh -t $ssh_user@$ssh_host "forearm dump > houston-config.yml"
-ssh -t $ssh_user@$ssh_host "sed -i 's/^hosts:$/hostgroups:\n  skylab:\n    classes:\n    - skylab\n    parameters:\n      axiom_hosts: ${axiom}\nhosts:/g' houston-config.yml"
+ssh -t $ssh_user@$ssh_host "sed -i 's/^hosts:$/hostgroups:\n  skylab:\n    environment: production\n    classes:\n    - skylab\n    parameters:\n      axiom_hosts: ${axiom}\nhosts:/g' houston-config.yml"
 ssh -t $ssh_user@$ssh_host "sed -i 's/^    environment: production$/    environment: production\n    hostgroup: skylab/g' houston-config.yml"
 ssh -t $ssh_user@$ssh_host "forearm push houston-config.yml"
+ssh -t $ssh_user@$ssh_host "houston kick all"
 
 #if [ "$3" -a "$4" ]
 #then
