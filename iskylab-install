@@ -32,7 +32,10 @@ ssh -t $ssh_user@$ssh_host "forearm dump > houston-config.yml"
 ssh -t $ssh_user@$ssh_host "sed -i 's/^hosts:$/hostgroups:\n  skylab:\n    environment: production\n    classes:\n    - skylab\n    parameters:\n      axiom_hosts: ${axiom}\nhosts:/g' houston-config.yml"
 ssh -t $ssh_user@$ssh_host "sed -i 's/^    environment: production$/    environment: production\n    hostgroup: skylab/g' houston-config.yml"
 ssh -t $ssh_user@$ssh_host "forearm push houston-config.yml"
+
+set +e
 ssh -t $ssh_user@$ssh_host "houston kick all"
+set -e
 
 #if [ "$3" -a "$4" ]
 #then
@@ -41,7 +44,6 @@ ssh -t $ssh_user@$ssh_host "houston kick all"
 #fi
 
 ssh -t $ssh_user@$ssh_host "\$HOUSTON_DATA/config/files/install_skylab.sh -hg skylab -fp palantir -y"
-
 echo "Type in what you want the multipass admin password to be (suggestion: palantir)"
 ssh -t $ssh_user@$ssh_host "deployctl service secret-set multipass --stack management --secret-name adminPassword"
 
