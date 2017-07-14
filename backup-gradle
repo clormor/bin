@@ -1,0 +1,26 @@
+#!/bin/bash
+
+GRADLE_HOME=~/.gradle
+TIMESTAMP=$(date +"%s")
+
+function backup_dir {
+    if [ -d $1 ]
+    then
+        mv -v $1 $1-backup-${TIMESTAMP}
+    else
+        echo "No directory found at $1: Assuming a fresh Gradle home and skipping..."
+        exit 1
+    fi
+}
+
+if [ -d ${GRADLE_HOME} ]
+then
+    echo "Backing up ${GRADLE_HOME} using timestamp ${TIMESTAMP}..."
+    backup_dir ${GRADLE_HOME}/caches
+    backup_dir ${GRADLE_HOME}/daemon
+    backup_dir ${GRADLE_HOME}/native
+    backup_dir ${GRADLE_HOME}/wrapper
+else
+    echo "No gradle home found at ${GRADLE_HOME}"
+fi
+
