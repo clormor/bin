@@ -1,0 +1,55 @@
+#!/bin/bash -e
+
+OPTIND=1 # Reset in case getopts has been used previously in the shell.
+
+function show_help {
+    echo "Usage: $(basename $0) [-b|-r|-h]" >&2
+    echo -e "\t-b: Backup current homebrew environment" >&2
+    echo -e "\t-r: Restore homebrew environment from backup" >&2
+    echo -e "\t-h: Print this help message" >&2
+    exit $1
+}
+
+# Initialize our own variables:
+output_file="~/Brewfile"
+backup=0
+restore=0
+
+while getopts "?hbr" opt; do
+    case "$opt" in
+    \?)
+        show_help 1
+        ;;
+    b)  backup=1
+        ;;
+    r)  restore=1
+        ;;
+    h)
+        show_help 0
+        ;;
+    esac
+done
+
+# Check the user supplied an argument
+if [ $OPTIND -eq 1 ]; then show_help 1; fi
+shift $((OPTIND-1))
+
+# Check the user did not specify backup and restore
+if [ $backup -eq 1 -a $restore -eq 1 ]
+then
+    echo "Cannot backup and restore at the same time. Please specify one of either -b or -r."
+    show_help 1
+fi
+
+if [ $backup -eq 1 ]
+then
+    brew bundle dump --force --file=${output_file}
+    echo "Homebrew backup file created at $output_file"
+fi
+
+if [ $restore -eq 1 ]
+then
+    brew bundle --file=${output_file}
+    echo "Homebrew restored from file $output_file"
+fi
+
