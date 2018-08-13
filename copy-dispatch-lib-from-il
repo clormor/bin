@@ -1,13 +1,40 @@
 #!/bin/bash
 
-# point it to an insta IL and grab the dispatch jars
-set -e
+# Point it to an insta IL and grab the dispatch jars
+# 
+# Note: Assumes you have installed `insta` (https://github.palantir.build/gotham/insta)
+
+set -eu
+
+show_usage() {
+cat << EOF
+Usage: ${0##*/} <IL no.>
+
+Grab the Dispatch jars and config from an IL, to create a Palantir SDK in IntelliJ. Assumes you have installed 'insta'.
+
+    <IL no.>    'insta' host ID for the source IL (run 'insta list' to determine the correct ID).
+
+Examples:
+    '${0##*/} 0'
+
+See Also:
+    palantir-intellij-plugin:   https://github.palantir.build/gotham/pg-intellij-plugin
+    insta:                      https://github.palantir.build/gotham/insta
+
+EOF
+}
+
+if [ $# -ne 1 ]; then
+    show_usage
+    exit 1
+fi
 
 il_num=$1
 il_pass=$( insta p $il_num )
 il_host=$( insta host $il_num )
 il_dispatch=/opt/palantir/services/dispatch-0
 lib_base=~/palantir-lib
+copy_cmd="rsync -crv --delete-after"
 
 echo "Password is: $il_pass"
 ~/bin/passwordless-ssh palantir@$il_host
@@ -15,9 +42,11 @@ echo "Password is: $il_pass"
 ssh palantir@$il_host jar xf $il_dispatch/service/lib/client-patch/patch.jar palantir-patch_info.properties
 il_version=$( ssh palantir@$il_host cat palantir-patch_info.properties | grep \"Base\": | sed 's/.*\(3\.[1-9][0-9]*\.[0-9]*\.[0-9]*\.[0-9]*\).*/\1/g' )
 
-mkdir -p $lib_base/$il_version/lib
+mkdir -p $lib_base/$il_version/service/lib
+mkdir -p $lib_base/$il_version/var/conf
 
-scp -r palantir@$il_host:/opt/palantir/services/dispatch-0/service/lib/client $lib_base/$il_version/lib
-scp -r palantir@$il_host:/opt/palantir/services/dispatch-0/service/lib/client-patch $lib_base/$il_version/lib
-scp -r palantir@$il_host:/opt/palantir/services/dispatch-0/var/conf/security $lib_base/$il_version
+$copy_cmd palantir@$il_host:/opt/palantir/services/dispatch-0/service/lib/client $lib_base/$il_version/service/lib
+$copy_cmd palantir@$il_host:/opt/palantir/services/dispatch-0/service/lib/client-patch $lib_base/$il_version/service/lib
+$copy_cmd palantir@$il_host:/opt/palantir/services/dispatch-0/var/conf/security $lib_base/$il_version/var/conf
+$copy_cmd palantir@$il_host:/opt/palantir/services/dispatch-0/var/conf/webstart $lib_base/$il_version/var/conf
 
