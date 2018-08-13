@@ -1,0 +1,23 @@
+#!/bin/bash
+
+# point it to an insta IL and grab the dispatch jars
+set -e
+
+il_num=$1
+il_pass=$( insta p $il_num )
+il_host=$( insta host $il_num )
+il_dispatch=/opt/palantir/services/dispatch-0
+lib_base=~/palantir-lib
+
+echo "Password is: $il_pass"
+~/bin/passwordless-ssh palantir@$il_host
+
+ssh palantir@$il_host jar xf $il_dispatch/service/lib/client-patch/patch.jar palantir-patch_info.properties
+il_version=$( ssh palantir@$il_host cat palantir-patch_info.properties | grep \"Base\": | sed 's/.*\(3\.[1-9][0-9]*\.[0-9]*\.[0-9]*\.[0-9]*\).*/\1/g' )
+
+mkdir -p $lib_base/$il_version/lib
+
+scp -r palantir@$il_host:/opt/palantir/services/dispatch-0/service/lib/client $lib_base/$il_version/lib
+scp -r palantir@$il_host:/opt/palantir/services/dispatch-0/service/lib/client-patch $lib_base/$il_version/lib
+scp -r palantir@$il_host:/opt/palantir/services/dispatch-0/var/conf/security $lib_base/$il_version
+
