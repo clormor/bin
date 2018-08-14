@@ -1,18 +1,16 @@
 #!/bin/bash
 
-# Point it to an insta IL and grab the dispatch jars
-# 
-# Note: Assumes you have installed `insta` (https://github.palantir.build/gotham/insta)
-
-set -eu
+set -e
 
 show_usage() {
 cat << EOF
 Usage: ${0##*/} <IL no.>
 
-Grab the Dispatch jars and config from an IL, to create a Palantir SDK in IntelliJ. Assumes you have installed 'insta'.
+Grab the Dispatch jars and config from an IL, to create a Palantir SDK in IntelliJ. Note:
+    * Assumes you have installed 'insta'.
+    * Assumes you have installed 'ssh-copy-id' (brew install ssh-copy-id)
 
-    <IL no.>    'insta' host ID for the source IL (run 'insta list' to determine the correct ID).
+    <IL no.>    insta host ID for the source IL (run 'insta list' to determine the correct ID).
 
 Examples:
     '${0##*/} 0'
@@ -24,13 +22,10 @@ See Also:
 EOF
 }
 
-if [ $# -ne 1 ]; then
-    show_usage
-    exit 1
-fi
-
+# validate argument
 case $1 in
     [0-9]*)
+        set -u
         ;;
     -h | --help)
         show_usage
@@ -48,15 +43,18 @@ il_dispatch_home=/opt/palantir/services/dispatch-0
 lib_base=~/palantir-lib
 copy_cmd="rsync -crv --delete-after"
 
+# setup passwordless-ssh to avoid multiple password entries
 echo "Password is: $il_pass"
-~/bin/passwordless-ssh palantir@$il_host
+ssh-copy-id palantir@$il_host
 
+# determine version of Gotham on IL by examining patch jar
 ssh palantir@$il_host jar xf $il_dispatch_home/service/lib/client-patch/patch.jar palantir-patch_info.properties
 il_version=$( ssh palantir@$il_host cat palantir-patch_info.properties | grep \"Base\": | sed 's/.*\(3\.[1-9][0-9]*\.[0-9]*\.[0-9]*\.[0-9]*\).*/\1/g' )
 
 mkdir -p $lib_base/$il_version/service/lib
 mkdir -p $lib_base/$il_version/var/conf
 
+# rsync relevant libs and config
 $copy_cmd palantir@$il_host:$il_dispatch_home/service/lib/client $lib_base/$il_version/service/lib
 $copy_cmd palantir@$il_host:$il_dispatch_home/service/lib/client-patch $lib_base/$il_version/service/lib
 $copy_cmd palantir@$il_host:$il_dispatch_home/var/conf/security $lib_base/$il_version/var/conf
