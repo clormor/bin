@@ -29,24 +29,36 @@ if [ $# -ne 1 ]; then
     exit 1
 fi
 
+case $1 in
+    [0-9]*)
+        ;;
+    -h | --help)
+        show_usage
+        exit 0
+        ;;
+    *)
+        show_usage
+        exit 1
+esac
+
 il_num=$1
 il_pass=$( insta p $il_num )
 il_host=$( insta host $il_num )
-il_dispatch=/opt/palantir/services/dispatch-0
+il_dispatch_home=/opt/palantir/services/dispatch-0
 lib_base=~/palantir-lib
 copy_cmd="rsync -crv --delete-after"
 
 echo "Password is: $il_pass"
 ~/bin/passwordless-ssh palantir@$il_host
 
-ssh palantir@$il_host jar xf $il_dispatch/service/lib/client-patch/patch.jar palantir-patch_info.properties
+ssh palantir@$il_host jar xf $il_dispatch_home/service/lib/client-patch/patch.jar palantir-patch_info.properties
 il_version=$( ssh palantir@$il_host cat palantir-patch_info.properties | grep \"Base\": | sed 's/.*\(3\.[1-9][0-9]*\.[0-9]*\.[0-9]*\.[0-9]*\).*/\1/g' )
 
 mkdir -p $lib_base/$il_version/service/lib
 mkdir -p $lib_base/$il_version/var/conf
 
-$copy_cmd palantir@$il_host:/opt/palantir/services/dispatch-0/service/lib/client $lib_base/$il_version/service/lib
-$copy_cmd palantir@$il_host:/opt/palantir/services/dispatch-0/service/lib/client-patch $lib_base/$il_version/service/lib
-$copy_cmd palantir@$il_host:/opt/palantir/services/dispatch-0/var/conf/security $lib_base/$il_version/var/conf
-$copy_cmd palantir@$il_host:/opt/palantir/services/dispatch-0/var/conf/webstart $lib_base/$il_version/var/conf
+$copy_cmd palantir@$il_host:$il_dispatch_home/service/lib/client $lib_base/$il_version/service/lib
+$copy_cmd palantir@$il_host:$il_dispatch_home/service/lib/client-patch $lib_base/$il_version/service/lib
+$copy_cmd palantir@$il_host:$il_dispatch_home/var/conf/security $lib_base/$il_version/var/conf
+$copy_cmd palantir@$il_host:$il_dispatch_home/var/conf/webstart $lib_base/$il_version/var/conf
 
