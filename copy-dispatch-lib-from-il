@@ -4,13 +4,14 @@ set -e
 
 show_usage() {
 cat << EOF
-Usage: ${0##*/} <IL no.>
+Usage: ${0##*/} <IL no.>/<hostname>
 
 Grab the Dispatch jars and config from an IL, to create a Palantir SDK in IntelliJ. Note:
     * Assumes you have installed 'insta'.
     * Assumes you have installed 'ssh-copy-id' (brew install ssh-copy-id)
 
     <IL no.>    insta host ID for the source IL (run 'insta list' to determine the correct ID).
+    <hostname>  hostname of the source IL
 
 Examples:
     '${0##*/} 0'
@@ -25,31 +26,38 @@ EOF
 # validate argument
 case $1 in
     [0-9]*)
-        set -u
+        insta=1
+        il_host=$(insta hostname $1)
         ;;
     -h | --help)
         show_usage
         exit 0
         ;;
     *)
-        show_usage
-        exit 1
+        insta=0
+        il_host=$1
 esac
+set -u
 
-il_num=$1
-il_pass=$( insta p $il_num )
-il_host=$( insta host $il_num )
-il_dispatch_home=/opt/palantir/services/dispatch-0
+if [ $insta -eq 1 ]; then
+    il_pass=$( insta p $il_num )
+    echo "Your palantir IL Password is: $il_pass"
+fi
 lib_base=~/palantir-lib
 copy_cmd="rsync -crv --delete-after"
 
 # setup passwordless-ssh to avoid multiple password entries
-echo "Password is: $il_pass"
 ssh-copy-id palantir@$il_host
 
+# locate dispatch home
+il_dispatch_home=$( ssh palantir@$il_host find -L /opt/palantir/services -maxdepth 1 -name "*dispatch*"  )
 # determine version of Gotham on IL by examining patch jar
-ssh palantir@$il_host jar xf $il_dispatch_home/service/lib/client-patch/patch.jar palantir-patch_info.properties
-il_version=$( ssh palantir@$il_host cat palantir-patch_info.properties | grep \"Base\": | sed 's/.*\(3\.[1-9][0-9]*\.[0-9]*\.[0-9]*\.[0-9]*\).*/\1/g' )
+#if $( ssh palantir@$il_host test -f $il_dispatch_home/service/lib/client-patch/patch.jar palantir-patch_info.properties  ); then
+#    ssh palantir@$il_host jar xf $il_dispatch_home/service/lib/client-patch/patch.jar palantir-patch_info.properties
+#    il_version=$( ssh palantir@$il_host cat palantir-patch_info.properties | grep \"Base\": | sed 's/.*\(3\.[1-9][0-9]*\.[0-9]*\.[0-9]*\.[0-9]*\).*/\1/g' )
+#else
+    il_version=$( ssh palantir@$il_host find $il_dispatch_home/service/lib/client/pg-client-resources*jar | sed 's/.*\(3\.[1-9][0-9]*.*\).jar/\1/g' )
+#fi
 
 mkdir -p $lib_base/$il_version/service/lib
 mkdir -p $lib_base/$il_version/var/conf
