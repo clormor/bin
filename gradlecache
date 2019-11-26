@@ -4,9 +4,10 @@
 
 
 GRADLE_HOME=~/.gradle
-BACKUP_LOC=$GRADLE_HOME
-BACKUP_PREFIX="-backup-"
+BACKUP_LOC=~/.backups-gradlecache
+BACKUP_PREFIX="-"
 LIST_DATE_FORMAT="%d %b %Y %H:%M"
+CACHE_DIRS=('caches' 'daemon' 'native' 'wrapper')
 
 
 function show_help {
@@ -29,11 +30,36 @@ function abort {
     exit $return_code
 }
 
+function format_timestamp {
+    date -r $1 +"$LIST_DATE_FORMAT"
+}
+
+function estimate_backup_size {
+    du -hs "${BACKUP_LOC}/${CACHE_DIRS}${BACKUP_PREFIX}$1" \
+        | tail -n 1 \
+        | awk '{print $1}'
+}
+
+function find_backup_timestamps {
+    if [ ! -d $BACKUP_LOC ]
+    then
+        exit
+    fi
+
+    find \
+        $BACKUP_LOC \
+        -maxdepth 1 \
+        -type d \
+        -regex ".*${CACHE_DIRS[0]}${BACKUP_PREFIX}[0-9]\{10,11\}" \
+        | sed 's/.*\([0-9]\{10,11\}\)/\1/' | sort | uniq
+}
+
 function list_backups {
-    for backup in $(find $BACKUP_LOC -maxdepth 1 -type d -name "*$BACKUP_PREFIX*" -exec basename {} \; | cut -f 3 -d '-' | sort | uniq)
+    for timestamp in $(find_backup_timestamps)
     do
-        date_string=$(date -r $backup +"$LIST_DATE_FORMAT")
-        echo "$backup ($date_string)"
+        date_string=$(format_timestamp $timestamp)
+        size_string=$(estimate_backup_size $timestamp)
+        echo "$timestamp ($date_string) ($size_string)"
     done
 }
 
@@ -74,7 +100,7 @@ function clear_dir {
 }
 
 function validate_timestamp {
-    if [[ ! $1 =~ ^[0-9]{10}$ ]]
+    if [[ ! $1 =~ ^[0-9]{10,11}$ ]]
     then
         abort "$1 is not a valid timestamp"
     fi
@@ -85,11 +111,15 @@ function backup {
 
     if [ -d ${GRADLE_HOME} ]
     then
-        echo "Backing up existing ${GRADLE_HOME} using timestamp $backup_timestamp..."
-        backup_dir ${GRADLE_HOME}/caches $backup_timestamp
-        backup_dir ${GRADLE_HOME}/daemon $backup_timestamp
-        backup_dir ${GRADLE_HOME}/native $backup_timestamp
-        backup_dir ${GRADLE_HOME}/wrapper $backup_timestamp
+        echo "Backing up ${GRADLE_HOME} using timestamp $backup_timestamp..."
+        if [ ! -d $BACKUP_LOC ]
+        then
+            mkdir -p $BACKUP_LOC
+        fi
+        for dir in "${CACHE_DIRS[@]}"
+        do
+            backup_dir ${GRADLE_HOME}/$dir $backup_timestamp
+        done
     else
         abort "No gradle home found at ${GRADLE_HOME}" 0
     fi
@@ -98,11 +128,12 @@ function backup {
 function restore {
     if [[ $1 == "" ]]
     then
-        for backup in $(find $BACKUP_LOC -maxdepth 1 -type d -name "*$BACKUP_PREFIX*" -exec basename {} \; | cut -f 3 -d '-' | sort | uniq)
+        for timestamp in $(find_backup_timestamps)
         do
-            date_string=$(date -r $backup +"$LIST_DATE_FORMAT")
-            echo "$backup ($date_string)"
-            default_choice=$backup
+            date_string=$(format_timestamp $timestamp)
+            size_string=$(estimate_backup_size $timestamp)
+            echo "$timestamp ($date_string) ($size_string)"
+            default_choice=$timestamp
         done
         if [ -z $default_choice ]
         then
@@ -120,10 +151,10 @@ function restore {
     if [ -d ${GRADLE_HOME} ]
     then
         echo "Restoring ${GRADLE_HOME} using timestamp $restore_timestamp..."
-        restore_dir ${GRADLE_HOME}/caches $restore_timestamp
-        restore_dir ${GRADLE_HOME}/daemon $restore_timestamp
-        restore_dir ${GRADLE_HOME}/native $restore_timestamp
-        restore_dir ${GRADLE_HOME}/wrapper $restore_timestamp
+        for dir in "${CACHE_DIRS[@]}"
+        do
+            restore_dir ${GRADLE_HOME}/$dir $restore_timestamp
+        done
     else
         abort "No gradle home found at ${GRADLE_HOME}"
     fi
@@ -134,10 +165,10 @@ function clear {
     if [[ $reply =~ ^yes$ ]]
     then
         backup
-        clear_dir ${GRADLE_HOME}/caches
-        clear_dir ${GRADLE_HOME}/daemon
-        clear_dir ${GRADLE_HOME}/native
-        clear_dir ${GRADLE_HOME}/wrapper
+        for dir in "${CACHE_DIRS[@]}"
+        do
+            clear_dir ${GRADLE_HOME}/$dir
+        done
         echo "Gradle cache cleared"
     else
         echo "Not clearing cache"
@@ -145,11 +176,12 @@ function clear {
 }
 
 function prune {
-    for backup in $(find $BACKUP_LOC -maxdepth 1 -type d -name "*$BACKUP_PREFIX*" -exec basename {} \; | cut -f 3 -d '-' | sort | uniq)
+    for timestamp in $(find_backup_timestamps)
     do
-        date_string=$(date -r $backup +"$LIST_DATE_FORMAT")
-        echo "$backup ($date_string)"
-        default_choice=${default_choice:-$backup}
+        date_string=$(format_timestamp $timestamp)
+        size_string=$(estimate_backup_size $timestamp)
+        echo "$timestamp ($date_string) ($size_string)"
+        default_choice=${default_choice:-$timestamp}
     done
     if [ -z $default_choice ]
     then
@@ -159,7 +191,7 @@ function prune {
     read -p "Select backup to prune [$default_choice]: " prune_timestamp
     prune_timestamp=${prune_timestamp:-${default_choice}}
     echo "pruning $prune_timestamp..."
-    for dir in caches daemon native wrapper
+    for dir in "${CACHE_DIRS[@]}"
     do
         rm -rf ${BACKUP_LOC}/${dir}${BACKUP_PREFIX}$prune_timestamp
     done
