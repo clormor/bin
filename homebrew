@@ -1,12 +1,12 @@
 #!/bin/bash -e
 
+
 DUMP_FILE="${HOME}/.brewfile"
 
-# Exit the program with a message and optional exit code (default exit code=1)
+
 function abort {
-    return_code=${2:-1}
     echo "$1"
-    exit $return_code
+    exit 1 
 }
 
 function show_help {
