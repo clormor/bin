@@ -10,8 +10,10 @@ LIST_DATE_FORMAT="%d %b %Y %H:%M"
 
 
 function show_help {
-    echo "Usage: $(basename $0) -[blh] | -r [timestamp]" >&2
+    echo "Usage: $(basename $0) -[bclh] | -[rp] [timestamp]" >&2
     echo -e "\t-b: Backup gradle cache" >&2
+    echo -e "\t-c: Clear the existing gradle cache (creates a backup)" >&2
+    echo -e "\t-p: Prune backup" >&2
     echo -e "\t-r: Restore gradle cache from timestamp" >&2
     echo -e "\t-l: List backups" >&2
     echo -e "\t-h: Print help" >&2
@@ -42,7 +44,7 @@ function list_backups {
 function backup_dir {
     if [ -d $1 ]
     then
-        mv -v $1 ${BACKUP_LOC}/$(basename $1)${BACKUP_PREFIX}$2
+        cp -r $1 ${BACKUP_LOC}/$(basename $1)${BACKUP_PREFIX}$2
     else
         abort "No directory found at $1. Is this a fresh gradle home?"
     fi
@@ -55,9 +57,19 @@ function backup_dir {
 function restore_dir {
     if [ -d ${BACKUP_LOC}/$(basename $1)${BACKUP_PREFIX}$2 ]
     then
+        rm -rf $1
         mv -v ${BACKUP_LOC}/$(basename $1)${BACKUP_PREFIX}$2 $1
     else
         abort "No backup found with timestamp $2"
+    fi
+}
+
+function clear_dir {
+    if [ -d $1 ]
+    then
+        rm -rf $1
+    else
+        abort "No directory found at $1. Is this a fresh gradle home?"
     fi
 }
 
@@ -117,6 +129,41 @@ function restore {
     fi
 }
 
+function clear {
+    read -p "Are you sure you want to clear your gradle cache (\"yes\")? " reply
+    if [[ $reply =~ ^yes$ ]]
+    then
+        backup
+        clear_dir ${GRADLE_HOME}/caches
+        clear_dir ${GRADLE_HOME}/daemon
+        clear_dir ${GRADLE_HOME}/native
+        clear_dir ${GRADLE_HOME}/wrapper
+        echo "Gradle cache cleared"
+    else
+        echo "Not clearing cache"
+    fi
+}
+
+function prune {
+    for backup in $(find $BACKUP_LOC -maxdepth 1 -type d -name "*$BACKUP_PREFIX*" -exec basename {} \; | cut -f 3 -d '-' | sort | uniq)
+    do
+        date_string=$(date -r $backup +"$LIST_DATE_FORMAT")
+        echo "$backup ($date_string)"
+        default_choice=${default_choice:-$backup}
+    done
+    if [ -z $default_choice ]
+    then
+        abort "No available backups" 0
+    fi
+
+    read -p "Select backup to prune [$default_choice]: " prune_timestamp
+    prune_timestamp=${prune_timestamp:-${default_choice}}
+    echo "pruning $prune_timestamp..."
+    for dir in caches daemon native wrapper
+    do
+        rm -rf ${BACKUP_LOC}/${dir}${BACKUP_PREFIX}$prune_timestamp
+    done
+}
 
 # trap ctrl-c and call ctrl_c()
 trap ctrl_c INT
@@ -133,6 +180,12 @@ do
     case $1 in
         -b | --backup )
             backup && exit
+            ;;
+        -c | --clear )
+            clear && exit
+            ;;
+        -p | --prune )
+            prune && exit
             ;;
         -r | --restore )
             shift
