@@ -10,16 +10,21 @@ LIST_DATE_FORMAT="%d %b %Y %H:%M"
 
 
 function show_help {
-    echo "Usage: $(basename $0) [-b|-r|-l|-h]" >&2
+    echo "Usage: $(basename $0) -[blh] | -r [timestamp]" >&2
     echo -e "\t-b: Backup gradle cache" >&2
-    echo -e "\t-r: Restore gradle cache from backup" >&2
+    echo -e "\t-r: Restore gradle cache from timestamp" >&2
     echo -e "\t-l: List backups" >&2
     echo -e "\t-h: Print help" >&2
 }
 
+function ctrl_c() {
+    echo && exit 0
+}
+
 function abort {
+    return_code=${2:-1}
     echo "$1"
-    exit 1
+    exit $return_code
 }
 
 function list_backups {
@@ -52,7 +57,7 @@ function restore_dir {
     then
         mv -v ${BACKUP_LOC}/$(basename $1)${BACKUP_PREFIX}$2 $1
     else
-        abort "No backup found with timestamp $2. Use -l to list available backups"
+        abort "No backup found with timestamp $2"
     fi
 }
 
@@ -74,13 +79,31 @@ function backup {
         backup_dir ${GRADLE_HOME}/native $backup_timestamp
         backup_dir ${GRADLE_HOME}/wrapper $backup_timestamp
     else
-        abort "No gradle home found at ${GRADLE_HOME}"
+        abort "No gradle home found at ${GRADLE_HOME}" 0
     fi
 }
 
 function restore {
-    validate_timestamp $1
-    restore_timestamp=$1
+    if [[ $1 == "" ]]
+    then
+        for backup in $(find $BACKUP_LOC -maxdepth 1 -type d -name "*$BACKUP_PREFIX*" -exec basename {} \; | cut -f 3 -d '-' | sort | uniq)
+        do
+            date_string=$(date -r $backup +"$LIST_DATE_FORMAT")
+            echo "$backup ($date_string)"
+            default_choice=$backup
+        done
+        if [ -z $default_choice ]
+        then
+            abort "No available backups" 0
+        fi
+
+        read -p "Select backup to restore [$default_choice]: " restore_timestamp
+        restore_timestamp=${restore_timestamp:-${default_choice}}
+    else
+        restore_timestamp=$1
+    fi
+
+    validate_timestamp $restore_timestamp
 
     if [ -d ${GRADLE_HOME} ]
     then
@@ -94,24 +117,38 @@ function restore {
     fi
 }
 
-while [[ "$1" =~ ^- && ! "$1" == "--" ]]; do case $1 in
-  -b | --backup )
-    backup
-    exit
-    ;;
-  -r | --restore )
+
+# trap ctrl-c and call ctrl_c()
+trap ctrl_c INT
+
+# show help if no args specified
+if [ $# -lt 1 ]
+then
+    show_help && exit
+fi
+
+# process args
+while [[ "$1" =~ ^- && ! "$1" == "--" ]];
+do
+    case $1 in
+        -b | --backup )
+            backup && exit
+            ;;
+        -r | --restore )
+            shift
+            restore $1 && exit
+            ;;
+        -l | --list )
+            list_backups && exit
+            ;;
+        -h | --help )
+            show_help && exit
+            ;;
+        *)
+            show_help && abort "Unrecognized option: $1"
+            ;;
+    esac
     shift
-    restore $1
-    ;;
-  -l | --list )
-    list_backups
-    ;;
-  -h | --help )
-    show_help
-    ;;
-  * )
-    show_help
-    ;;
-esac; shift; done
+done
 if [[ "$1" == '--' ]]; then shift; fi
 
