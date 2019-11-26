@@ -5,8 +5,8 @@
 
 GRADLE_HOME=~/.gradle
 BACKUP_LOC=~/.backups-gradlecache
-BACKUP_PREFIX="-"
 LIST_DATE_FORMAT="%d %b %Y %H:%M"
+# the sub-directories under the GRADLE_HOME that we backup
 CACHE_DIRS=('caches' 'daemon' 'native' 'wrapper')
 
 
@@ -20,10 +20,12 @@ function show_help {
     echo -e "\t-h: Print help" >&2
 }
 
+# Exit cleanly if the user hits Ctrl,c when reading
 function ctrl_c() {
     echo && exit 0
 }
 
+# Exit the program with a message and optional exit code (default exit code=1)
 function abort {
     return_code=${2:-1}
     echo "$1"
@@ -34,8 +36,13 @@ function format_timestamp {
     date -r $1 +"$LIST_DATE_FORMAT"
 }
 
+# Estimate the size of a backup
 function estimate_backup_size {
-    du -hs "${BACKUP_LOC}/${CACHE_DIRS}${BACKUP_PREFIX}$1" \
+
+    # du every backup directory in the array
+    # emit a total (-c)
+    # print the numeric part of the last line (the total)
+    du -hsc "${BACKUP_LOC}/${CACHE_DIRS}${BACKUP_PREFIX}$1" \
         | tail -n 1 \
         | awk '{print $1}'
 }
@@ -46,6 +53,9 @@ function find_backup_timestamps {
         exit
     fi
 
+    # find a backup directory in the backup location
+    # extract the timestamp from the directory name
+    # sort to ensure oldest backups printed first
     find \
         $BACKUP_LOC \
         -maxdepth 1 \
@@ -100,6 +110,7 @@ function clear_dir {
 }
 
 function validate_timestamp {
+    # check the timestamp matches a regex
     if [[ ! $1 =~ ^[0-9]{10,11}$ ]]
     then
         abort "$1 is not a valid timestamp"
@@ -128,11 +139,14 @@ function backup {
 function restore {
     if [[ $1 == "" ]]
     then
+        # if no timestamp specified, present user with list of choices
         for timestamp in $(find_backup_timestamps)
         do
             date_string=$(format_timestamp $timestamp)
             size_string=$(estimate_backup_size $timestamp)
             echo "$timestamp ($date_string) ($size_string)"
+
+            # default to the most recent backup
             default_choice=$timestamp
         done
         if [ -z $default_choice ]
@@ -143,6 +157,7 @@ function restore {
         read -p "Select backup to restore [$default_choice]: " restore_timestamp
         restore_timestamp=${restore_timestamp:-${default_choice}}
     else
+        # if the user specified a timestamp, restore using that
         restore_timestamp=$1
     fi
 
@@ -176,25 +191,36 @@ function clear {
 }
 
 function prune {
-    for timestamp in $(find_backup_timestamps)
-    do
-        date_string=$(format_timestamp $timestamp)
-        size_string=$(estimate_backup_size $timestamp)
-        echo "$timestamp ($date_string) ($size_string)"
-        default_choice=${default_choice:-$timestamp}
-    done
-    if [ -z $default_choice ]
+    if [[ $1 == "" ]]
     then
-        abort "No available backups" 0
+        # if no timestamp specified, present user with list of choices
+        for timestamp in $(find_backup_timestamps)
+        do
+            date_string=$(format_timestamp $timestamp)
+            size_string=$(estimate_backup_size $timestamp)
+            echo "$timestamp ($date_string) ($size_string)"
+            default_choice=${default_choice:-$timestamp}
+        done
+        if [ -z $default_choice ]
+        then
+            abort "No available backups" 0
+        fi
+
+        read -p "Select backup to prune [$default_choice]: " prune_timestamp
+        prune_timestamp=${prune_timestamp:-${default_choice}}
+    else
+        # if the user specified a timestamp, prune that
+        prune_timestamp=$1
     fi
 
-    read -p "Select backup to prune [$default_choice]: " prune_timestamp
-    prune_timestamp=${prune_timestamp:-${default_choice}}
+    validate_timestamp $prune_timestamp
+
     echo "pruning $prune_timestamp..."
     for dir in "${CACHE_DIRS[@]}"
     do
         rm -rf ${BACKUP_LOC}/${dir}${BACKUP_PREFIX}$prune_timestamp
     done
+
 }
 
 # trap ctrl-c and call ctrl_c()
@@ -217,7 +243,8 @@ do
             clear && exit
             ;;
         -p | --prune )
-            prune && exit
+            shift
+            prune $1 && exit
             ;;
         -r | --restore )
             shift
