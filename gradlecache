@@ -42,7 +42,7 @@ function estimate_backup_size {
     # du every backup directory in the array
     # emit a total (-c)
     # print the numeric part of the last line (the total)
-    du -hsc "${BACKUP_LOC}/${CACHE_DIRS}${BACKUP_PREFIX}$1" \
+    du -hsc "${BACKUP_LOC}/${CACHE_DIRS}$1" \
         | tail -n 1 \
         | awk '{print $1}'
 }
@@ -60,7 +60,7 @@ function find_backup_timestamps {
         $BACKUP_LOC \
         -maxdepth 1 \
         -type d \
-        -regex ".*${CACHE_DIRS[0]}${BACKUP_PREFIX}[0-9]\{10,11\}" \
+        -regex ".*${CACHE_DIRS[0]}[0-9]\{10,11\}" \
         | sed 's/.*\([0-9]\{10,11\}\)/\1/' | sort | uniq
 }
 
@@ -80,7 +80,7 @@ function list_backups {
 function backup_dir {
     if [ -d $1 ]
     then
-        cp -r $1 ${BACKUP_LOC}/$(basename $1)${BACKUP_PREFIX}$2
+        cp -r $1 ${BACKUP_LOC}/$(basename $1)$2
     else
         abort "No directory found at $1. Is this a fresh gradle home?"
     fi
@@ -91,10 +91,10 @@ function backup_dir {
 # $1: absolute path to the directory being restored to
 # $2: backup timestamp to restore from
 function restore_dir {
-    if [ -d ${BACKUP_LOC}/$(basename $1)${BACKUP_PREFIX}$2 ]
+    if [ -d ${BACKUP_LOC}/$(basename $1)$2 ]
     then
         rm -rf $1
-        mv -v ${BACKUP_LOC}/$(basename $1)${BACKUP_PREFIX}$2 $1
+        mv -v ${BACKUP_LOC}/$(basename $1)$2 $1
     else
         abort "No backup found with timestamp $2"
     fi
@@ -218,7 +218,7 @@ function prune {
     echo "pruning $prune_timestamp..."
     for dir in "${CACHE_DIRS[@]}"
     do
-        rm -rf ${BACKUP_LOC}/${dir}${BACKUP_PREFIX}$prune_timestamp
+        rm -rf ${BACKUP_LOC}/${dir}$prune_timestamp
     done
 
 }
