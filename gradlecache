@@ -3,7 +3,7 @@
 # Set of tools to manage gradle the local gradle cache.
 
 
-GRADLE_HOME=~/.gradle
+GRADLE_HOME=${GRADLE_HOME:-${HOME}/.gradle}
 BACKUP_LOC=~/.backups-gradlecache
 LIST_DATE_FORMAT="%d %b %Y %H:%M"
 # the sub-directories under the GRADLE_HOME that we backup
