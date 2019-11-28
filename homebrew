@@ -10,12 +10,13 @@ function abort {
 }
 
 function show_help {
-    echo "Usage: $(basename $0) -[bhilru]" >&2
+    echo "Usage: $(basename $0) -[bhilrud]" >&2
     echo -e "\t-b: Backup current homebrew environment" >&2
     echo -e "\t-r: Restore homebrew environment from backup" >&2
     echo -e "\t-l: List the currently installed brews/casks" >&2
     echo -e "\t-i: Install homebrew" >&2
-    echo -e "\t-u: Uninstall homebrew" >&2
+    echo -e "\t-u: Update homebrew and upgrade packages" >&2
+    echo -e "\t-d: Uninstall homebrew" >&2
     echo -e "\t-h: Print this help message" >&2
 }
 
@@ -69,6 +70,15 @@ function install {
     /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
 }
 
+function update_upgrade {
+    # do not abort script if palantir casks are installed and not on VPN
+    set +e
+    brew update
+    set -e
+
+    brew upgrade `brew outdated`
+}
+
 # show help if no args specified
 if [ $# -lt 1 ]
 then
@@ -95,7 +105,10 @@ do
         -h | --help )
             show_help && exit
             ;;
-        -u | --uninstall )
+        -u | --upgrade )
+            update_upgrade && exit
+            ;;
+        -d | --delete )
             check_uninstall && exit
             ;;
         *)
