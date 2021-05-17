@@ -3,10 +3,10 @@
 # Set of tools to manage gradle the local gradle cache.
 
 
-GRADLE_HOME=${GRADLE_HOME:-${HOME}/.gradle}
-BACKUP_LOC=~/.backups-gradlecache
+GRADLE_USER_HOME=${GRADLE_USER_HOME:-${HOME}/.gradle}
+BACKUP_LOC=${GRADLECACHE_BACKUP_HOME:-${HOME}/.config/gradlecache-backups}
 LIST_DATE_FORMAT="%d %b %Y %H:%M"
-# the sub-directories under the GRADLE_HOME that we backup
+# the sub-directories under the GRADLE_USER_HOME that we backup
 CACHE_DIRS=('caches' 'daemon' 'native' 'wrapper')
 
 
@@ -33,7 +33,7 @@ function abort {
 }
 
 function format_timestamp {
-    date -r $1 +"$LIST_DATE_FORMAT"
+    date --date="@$1" +"$LIST_DATE_FORMAT"
 }
 
 # Estimate the size of a backup
@@ -94,9 +94,9 @@ function restore_dir {
     if [ -d ${BACKUP_LOC}/$(basename $1)$2 ]
     then
         rm -rf $1
-        mv -v ${BACKUP_LOC}/$(basename $1)$2 $1
+        mv ${BACKUP_LOC}/$(basename $1)$2 $1
     else
-        abort "No backup found with timestamp $2"
+        abort "No backup found with timestamp $2. List available backups with $(basename $0) -l"
     fi
 }
 
@@ -120,19 +120,19 @@ function validate_timestamp {
 function backup {
     backup_timestamp=$(date +"%s")
 
-    if [ -d ${GRADLE_HOME} ]
+    if [ -d ${GRADLE_USER_HOME} ]
     then
-        echo "Backing up ${GRADLE_HOME} using timestamp $backup_timestamp..."
+        echo "Backing up ${GRADLE_USER_HOME} using timestamp $backup_timestamp to ${BACKUP_LOC}..."
         if [ ! -d $BACKUP_LOC ]
         then
             mkdir -p $BACKUP_LOC
         fi
         for dir in "${CACHE_DIRS[@]}"
         do
-            backup_dir ${GRADLE_HOME}/$dir $backup_timestamp
+            backup_dir ${GRADLE_USER_HOME}/$dir $backup_timestamp
         done
     else
-        abort "No gradle home found at ${GRADLE_HOME}" 0
+        abort "No gradle home found at ${GRADLE_USER_HOME}" 0
     fi
 }
 
@@ -163,15 +163,15 @@ function restore {
 
     validate_timestamp $restore_timestamp
 
-    if [ -d ${GRADLE_HOME} ]
+    if [ -d ${GRADLE_USER_HOME} ]
     then
-        echo "Restoring ${GRADLE_HOME} using timestamp $restore_timestamp..."
+        echo "Restoring ${GRADLE_USER_HOME} using timestamp $restore_timestamp..."
         for dir in "${CACHE_DIRS[@]}"
         do
-            restore_dir ${GRADLE_HOME}/$dir $restore_timestamp
+            restore_dir ${GRADLE_USER_HOME}/$dir $restore_timestamp
         done
     else
-        abort "No gradle home found at ${GRADLE_HOME}"
+        abort "No gradle home found at ${GRADLE_USER_HOME}"
     fi
 }
 
@@ -182,7 +182,7 @@ function clear {
         backup
         for dir in "${CACHE_DIRS[@]}"
         do
-            clear_dir ${GRADLE_HOME}/$dir
+            clear_dir ${GRADLE_USER_HOME}/$dir
         done
         echo "Gradle cache cleared"
     else
